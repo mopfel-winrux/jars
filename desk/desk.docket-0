@@ -1,7 +1,7 @@
 :~  title+'jars'
     info+'An S3 server'
     color+0x5e.46a5
-    site+'/jars'
+    site+/jars
     version+[0 4 0]
     license+'MIT'
     website+'http://nativeplanet.io'
