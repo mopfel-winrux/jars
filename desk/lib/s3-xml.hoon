@@ -32,6 +32,31 @@
   =/  pad=@ud  ?:((gte (lent raw) wid) 0 (sub wid (lent raw)))
   (weld (reap pad '0') raw)
 ::
+::  +list-buckets-result: ListBuckets XML response
+::
+++  list-buckets-result
+  |=  [bucket-names=(list @t) now=@da]
+  ^-  octs
+  =/  buckets-xml=tape
+    %-  zing
+      %+  turn  bucket-names
+      |=  name=@t
+      ;:  welp
+        "<Bucket>"
+        "<Name>{(xml-escape (trip name))}</Name>"
+        "<CreationDate>{(trip (da-to-iso8601 now))}</CreationDate>"
+        "</Bucket>"
+      ==
+  %-  as-octt:mimes:html
+  ;:  welp
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<ListAllMyBucketsResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">"
+    "<Buckets>"
+    buckets-xml
+    "</Buckets>"
+    "</ListAllMyBucketsResult>"
+  ==
+::
 ::  +list-bucket-result: ListObjectsV2 XML response
 ::
 ++  list-bucket-result
@@ -78,6 +103,20 @@
     "<Size>{(a-co:co p.data.obj)}</Size>"
     "<StorageClass>STANDARD</StorageClass>"
     "</Contents>"
+  ==
+::
+::  +copy-object-result: CopyObject XML response
+::
+++  copy-object-result
+  |=  [etag=@t last-modified=@da]
+  ^-  octs
+  %-  as-octt:mimes:html
+  ;:  welp
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<CopyObjectResult>"
+    "<LastModified>{(trip (da-to-iso8601 last-modified))}</LastModified>"
+    "<ETag>{(xml-escape (trip etag))}</ETag>"
+    "</CopyObjectResult>"
   ==
 ::
 ::  +error-xml: S3 error XML response

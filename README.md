@@ -38,14 +38,22 @@ Three methods supported (checked in order):
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/jars` | List buckets (XML) with AWS SigV4 auth. With Eyre session auth, serves config UI. |
 | `PUT` | `/jars/<bucket>` | Create bucket |
-| `PUT` | `/jars/<bucket>/<key>` | Upload object |
+| `PUT` | `/jars/<bucket>/<key>` | Upload object (supports `x-amz-meta-*` custom metadata headers) |
 | `GET` | `/jars/<bucket>` | List objects (XML). Query params: `prefix`, `max-keys` |
 | `GET` | `/jars/<bucket>/<key>` | Download object |
 | `HEAD` | `/jars/<bucket>` | Check bucket exists |
-| `HEAD` | `/jars/<bucket>/<key>` | Get object metadata headers |
+| `HEAD` | `/jars/<bucket>/<key>` | Get object metadata headers (includes `x-amz-meta-*`) |
 | `DELETE` | `/jars/<bucket>/<key>` | Delete object |
 | `OPTIONS` | `*` | CORS preflight (always 200) |
+
+Metadata-only updates are supported with normal S3 copy semantics:
+
+- `PUT /jars/<bucket>/<key>` with `x-amz-copy-source: /<bucket>/<key>`
+- Optional `x-amz-metadata-directive: REPLACE` and `x-amz-meta-*` headers
+
+This allows updating custom metadata without re-uploading object bytes.
 
 ## Scry Endpoints
 

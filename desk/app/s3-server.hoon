@@ -241,6 +241,41 @@
     =/  parsed=(unit [bucket=@t key=(unit @t)])
       (parse-s3-path:s3-http url-path)
     ?~  parsed
+      ::  support S3 ListBuckets on root path when authenticated with AWS SigV4
+      =/  is-presigned=?
+        ?=(^ (find "X-Amz-Signature" (trip query)))
+      =/  has-aws-auth=?
+        ?=(^ (find-header:s3-http 'authorization' header-list.request.req))
+      =/  s3-authed=?
+        ?:  is-presigned
+          %:  validate-presigned-url:s3-auth
+            method.request.req
+            url-path
+            query
+            header-list.request.req
+            credentials.config
+            region.config
+            now.bowl
+          ==
+        ?:  has-aws-auth
+          %:  validate-auth-header:s3-auth
+            method.request.req
+            url-path
+            query
+            header-list.request.req
+            credentials.config
+            region.config
+          ==
+        %.n
+      ?:  s3-authed
+        ?:  =(method.request.req %'GET')
+          (handle-list-buckets eyre-id)
+        :_  this
+        %:  s3-give:s3-http
+          eyre-id  405
+          ~[['content-type' 'application/xml']]
+          `(s3-error-xml:s3-http 'MethodNotAllowed' 'Method not supported on service root')
+        ==
       ::  root path: serve config page
       ?.  authenticated.req
         :_  this
@@ -346,29 +381,87 @@
     ^-  (quip card _this)
     =/  bkt=bucket:s3
       (~(gut by store) bucket-name *(map object-key:s3 s3-object:s3))
-    =/  body=octs
-      ?~  body.request.req
-        [0 0]
-      u.body.request.req
-    =/  content-type=@t
-      %+  fall
-        (find-header:s3-http 'content-type' header-list.request.req)
-      'application/octet-stream'
-    =/  etag=@t  (etag-from-octs:s3-http body)
-    =/  obj=s3-object:s3
-      :*  body
-          content-type
-          etag
-          now.bowl
-          *(map @t @t)
+    =/  mcopy-source=(unit @t)
+      (find-header:s3-http 'x-amz-copy-source' header-list.request.req)
+    ?~  mcopy-source
+      =/  body=octs
+        ?~  body.request.req
+          [0 0]
+        u.body.request.req
+      =/  content-type=@t
+        %+  fall
+          (find-header:s3-http 'content-type' header-list.request.req)
+        'application/octet-stream'
+      =/  metadata=(map @t @t)
+        (metadata-from-headers:s3-http header-list.request.req)
+      =/  etag=@t  (etag-from-octs:s3-http body)
+      =/  obj=s3-object:s3
+        :*  body
+            content-type
+            etag
+            now.bowl
+            metadata
+        ==
+      =/  new-bkt=bucket:s3  (~(put by bkt) object-key obj)
+      =/  new-store=object-store:s3  (~(put by store) bucket-name new-bkt)
+      :_  this(store new-store)
+      %:  s3-give:s3-http
+        eyre-id  200
+        ~[['etag' etag] ['content-length' '0']]
+        ~
       ==
-    =/  new-bkt=bucket:s3  (~(put by bkt) object-key obj)
-    =/  new-store=object-store:s3  (~(put by store) bucket-name new-bkt)
-    :_  this(store new-store)
+    =/  parsed-source=(unit [bucket=@t key=@t])
+      (parse-copy-source:s3-http u.mcopy-source)
+    ?~  parsed-source
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  400
+        ~[['content-type' 'application/xml']]
+        `(s3-error-xml:s3-http 'InvalidArgument' 'Invalid x-amz-copy-source header')
+      ==
+    =/  src-bkt=(unit bucket:s3)
+      (~(get by store) bucket.u.parsed-source)
+    ?~  src-bkt
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  404
+        ~[['content-type' 'application/xml']]
+        `(s3-error-xml:s3-http 'NoSuchBucket' 'The specified bucket does not exist')
+      ==
+    =/  src-obj=(unit s3-object:s3)
+      (~(get by u.src-bkt) key.u.parsed-source)
+    ?~  src-obj
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  404
+        ~[['content-type' 'application/xml']]
+        `(s3-error-xml:s3-http 'NoSuchKey' 'The specified key does not exist')
+      ==
+    =/  metadata-directive=@t
+      (crip (cass (trip (fall (find-header:s3-http 'x-amz-metadata-directive' header-list.request.req) 'COPY'))))
+    =/  new-metadata=(map @t @t)
+      ?:  =(metadata-directive 'replace')
+        (metadata-from-headers:s3-http header-list.request.req)
+      metadata.u.src-obj
+    =/  copied-content-type=@t
+      ?:  =(metadata-directive 'replace')
+        (fall (find-header:s3-http 'content-type' header-list.request.req) content-type.u.src-obj)
+      content-type.u.src-obj
+    =/  copied=s3-object:s3
+      :*  data.u.src-obj
+          copied-content-type
+          etag.u.src-obj
+          now.bowl
+          new-metadata
+      ==
+    =/  copied-bkt=bucket:s3  (~(put by bkt) object-key copied)
+    =/  copied-store=object-store:s3  (~(put by store) bucket-name copied-bkt)
+    =/  xml-body=octs  (copy-object-result:s3-xml etag.copied last-modified.copied)
+    :_  this(store copied-store)
     %:  s3-give:s3-http
       eyre-id  200
-      ~[['etag' etag] ['content-length' '0']]
-      ~
+      ~[['content-type' 'application/xml'] ['etag' etag.copied]]
+      `xml-body
     ==
   ::
   ++  handle-get-object
@@ -390,13 +483,17 @@
         ~[['content-type' 'application/xml']]
         `(s3-error-xml:s3-http 'NoSuchKey' 'The specified key does not exist')
       ==
+    =/  response-headers=(list [@t @t])
+      %+  weld
+        :~  ['content-type' content-type.u.obj]
+            ['etag' etag.u.obj]
+            ['last-modified' (da-to-http-date:s3-http last-modified.u.obj)]
+        ==
+      (metadata-headers:s3-http metadata.u.obj)
     :_  this
     %:  s3-give:s3-http
       eyre-id  200
-      :~  ['content-type' content-type.u.obj]
-          ['etag' etag.u.obj]
-          ['last-modified' (da-to-http-date:s3-http last-modified.u.obj)]
-      ==
+      response-headers
       `data.u.obj
     ==
   ::
@@ -411,14 +508,18 @@
     ?~  obj
       :_  this
       (s3-give:s3-http eyre-id 404 ~ ~)
+    =/  response-headers=(list [@t @t])
+      %+  weld
+        :~  ['content-type' content-type.u.obj]
+            ['content-length' (crip (a-co:co p.data.u.obj))]
+            ['etag' etag.u.obj]
+            ['last-modified' (da-to-http-date:s3-http last-modified.u.obj)]
+        ==
+      (metadata-headers:s3-http metadata.u.obj)
     :_  this
     %:  s3-give:s3-http
       eyre-id  200
-      :~  ['content-type' content-type.u.obj]
-          ['content-length' (crip (a-co:co p.data.u.obj))]
-          ['etag' etag.u.obj]
-          ['last-modified' (da-to-http-date:s3-http last-modified.u.obj)]
-      ==
+      response-headers
       ~
     ==
   ::
@@ -430,6 +531,22 @@
       (s3-give:s3-http eyre-id 404 ~ ~)
     :_  this
     (s3-give:s3-http eyre-id 200 ~ ~)
+  ::
+  ++  handle-list-buckets
+    |=  eyre-id=@ta
+    ^-  (quip card _this)
+    =/  bucket-names=(list @t)
+      %+  sort
+        ~(tap in ~(key by store))
+      aor
+    =/  xml-body=octs
+      (list-buckets-result:s3-xml bucket-names now.bowl)
+    :_  this
+    %:  s3-give:s3-http
+      eyre-id  200
+      ~[['content-type' 'application/xml']]
+      `xml-body
+    ==
   ::
   ++  handle-delete-object
     |=  [eyre-id=@ta =bucket-name:s3 =object-key:s3]

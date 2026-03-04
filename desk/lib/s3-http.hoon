@@ -247,4 +247,76 @@
   %+  turn  headers
   |=  [k=@t v=@t]
   [(crip (cass (trip k))) v]
+::
+::  +starts-with: check if text starts with prefix
+::
+++  starts-with
+  |=  [prefix=@t txt=@t]
+  ^-  ?
+  =/  p=tape  (trip prefix)
+  =/  t=tape  (trip txt)
+  ?:  (lth (lent t) (lent p))
+    %.n
+  =(p (scag (lent p) t))
+::
+::  +parse-copy-source: parse x-amz-copy-source into bucket/key
+::
+::    Accepts "/bucket/key" or "bucket/key" and strips query params.
+::
+++  parse-copy-source
+  |=  src=@t
+  ^-  (unit [bucket=@t key=@t])
+  =/  decoded=@t  (url-decode-full src)
+  =/  without-query=@t
+    =/  t=tape  (trip decoded)
+    =/  idx  (find "?" t)
+    ?~  idx
+      decoded
+    (crip (scag u.idx t))
+  =/  stripped=@t
+    ?:  (starts-with '/' without-query)
+      (crip (slag 1 (trip without-query)))
+    without-query
+  =/  t=tape  (trip stripped)
+  ?:  =(~ t)
+    ~
+  =/  slash=(unit @ud)  (find "/" t)
+  ?~  slash
+    ~
+  =/  bucket=@t  (crip (scag u.slash t))
+  =/  key=@t  (crip (slag +(u.slash) t))
+  ?:  |(=(bucket '') =(key ''))
+    ~
+  `[bucket key]
+::
+::  +metadata-from-headers: extract x-amz-meta-* headers
+::
+++  metadata-from-headers
+  |=  headers=(list [@t @t])
+  ^-  (map @t @t)
+  =|  acc=(map @t @t)
+  |-
+  ?~  headers
+    acc
+  =/  name=@t  (crip (cass (trip -.i.headers)))
+  =/  mkey=(unit @t)
+    ?:  (starts-with 'x-amz-meta-' name)
+      =/  key=@t  (crip (slag 11 (trip name)))
+      ?:  =(key '')
+        ~
+      `key
+    ~
+  ?~  mkey
+    $(headers t.headers)
+  =/  next=(map @t @t)  (~(put by acc) u.mkey +.i.headers)
+  $(headers t.headers, acc next)
+::
+::  +metadata-headers: render metadata map as x-amz-meta-* headers
+::
+++  metadata-headers
+  |=  metadata=(map @t @t)
+  ^-  (list [@t @t])
+  %+  turn  ~(tap by metadata)
+  |=  [k=@t v=@t]
+  [(crip "x-amz-meta-{(trip k)}") v]
 --
