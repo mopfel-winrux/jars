@@ -433,6 +433,7 @@
         %-  pairs:enjs:format
         :~  ['region' s+region.config]
             ['accessKeyId' s+access-key-id.credentials.config]
+            ['secretAccessKey' s+secret-access-key.credentials.config]
         ==
       ``json+!>(json)
     ::
