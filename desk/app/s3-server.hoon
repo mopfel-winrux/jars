@@ -163,6 +163,17 @@
           %handle-http-request
         (handle-http !<([@ta inbound-request:eyre] vase))
       ::
+          %egg-any
+        ?>  =(src our):bowl
+        =+  !<(=egg-any:gall vase)
+        ?-  -.egg-any
+            ?(%15 %16)
+          ?.  ?=(%live +<.egg-any)
+            ~&  [dap.bowl %egg-any-not-live]
+            [~ this]
+          (on-load -:!>(*versioned-state) +>.old-state.egg-any)
+        ==
+      ::
           %noun
         =/  act  !<(* vase)
         ?+  act  (on-poke:def mark vase)
