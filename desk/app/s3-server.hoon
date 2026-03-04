@@ -546,6 +546,7 @@
       eyre-id  200
       ~[['content-type' 'application/xml']]
       `xml-body
+    ==
   ::
   ++  handle-delete-object
     |=  [eyre-id=@ta =bucket-name:s3 =object-key:s3]
