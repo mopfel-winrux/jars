@@ -1,0 +1,8 @@
+:~  title+'jars'
+    info+'An S3 server'
+    color+0x5e.46a5
+    base+'jars'
+    version+[0 4 0]
+    license+'MIT'
+    website+'http://nativeplanet.io'
+==
