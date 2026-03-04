@@ -13,7 +13,7 @@
   =/  key=octs   [4 'Jefe']
   =/  msg=octs   [28 'what do ya want for nothing?']
   =/  result=@   (hmac-sha256:s3-auth key msg)
-  =/  expected=@  0x4338.ec64.b958.ec9d.8339.27d2.890f.003a.c575.9508.2624.046a.4e75.60bf.46c1.dc5b
+  =/  expected=@  0x4338.ec64.b958.ec9d.8339.279d.083f.005a.c775.9508.2624.046a.4e75.60bf.46c1.dc5b
   %+  expect-eq
     !>(expected)
   !>(result)
@@ -25,7 +25,7 @@
     %-  hex-lower-cord:s3-auth
     0xd7a8.fbbe.2e0b.4975.7163.2efa.26fe.4a0b.7600.9c21.2f78.f02c.b6ce.3749.3026.1a38
   %+  expect-eq
-    !>('381a26300937ceb62cf0782f219c0076.0b4afe26fa2e63617175490b2ebb.fba8d7')
+    !>('381a26304937ceb62cf0782f219c00760b4afe26fa2e637175490b2ebefba8d7')
   ::  XX above is the raw hex; check format
   !>(result)
 ::

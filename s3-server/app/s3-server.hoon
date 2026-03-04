@@ -4,7 +4,7 @@
 ::  Objects are stored in agent state as binary blobs.
 ::  Auth via AWS Signature V4 presigned URLs.
 ::
-/-  s3
+/-  s3, storage
 /+  dbug, verb, server, default-agent,
     s3-auth, s3-http, s3-xml
 |%
@@ -47,8 +47,12 @@
 ::
 ++  on-init
   ^-  (quip card _this)
+  =/  access-key=@t  (scot %p our.bowl)
+  =/  secret-key=@t  (hex-lower-cord:s3-auth (end [3 32] eny.bowl))
   =/  default-config=s3-config:s3
-    ['us-east-1' ['minioadmin' 'minioadmin']]
+    ['us-east-1' [access-key secret-key]]
+  %-  (slog leaf+"s3-server: access-key={(trip access-key)}" ~)
+  %-  (slog leaf+"s3-server: secret-key={(trip secret-key)}" ~)
   :_  this(config default-config)
   :~  :*  %pass  /eyre/connect
           %arvo  %e  %connect
@@ -74,6 +78,28 @@
           %-  (slog leaf+"  access-key: {(trip access-key-id.credentials.config)}" ~)
           %-  (slog leaf+"  secret-key: {(trip secret-access-key.credentials.config)}" ~)
           `this
+        ::
+            %configure-storage
+          =/  bucket=@t  'default'
+          =/  endpoint=@t  'http://localhost:8080/apps/s3-server'
+          =/  new-store=object-store:s3
+            ?~  (~(get by store) bucket)
+              (~(put by store) bucket *(map object-key:s3 s3-object:s3))
+            store
+          %-  (slog leaf+"s3-server: configuring %storage agent" ~)
+          %-  (slog leaf+"  endpoint: {(trip endpoint)}" ~)
+          %-  (slog leaf+"  access-key: {(trip access-key-id.credentials.config)}" ~)
+          %-  (slog leaf+"  region: {(trip region.config)}" ~)
+          %-  (slog leaf+"  bucket: {(trip bucket)}" ~)
+          :_  this(store new-store)
+          :~  [%pass /storage/endpoint %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-endpoint endpoint]))]
+              [%pass /storage/access-key %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-access-key-id access-key-id.credentials.config]))]
+              [%pass /storage/secret-key %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-secret-access-key secret-access-key.credentials.config]))]
+              [%pass /storage/region %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-region region.config]))]
+              [%pass /storage/bucket %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%add-bucket bucket]))]
+              [%pass /storage/current-bucket %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-current-bucket bucket]))]
+              [%pass /storage/service %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%toggle-service %credentials]))]
+          ==
         ==
       ::
           %s3-set-config
