@@ -56,7 +56,7 @@
   :_  this(config default-config)
   :~  :*  %pass  /eyre/connect
           %arvo  %e  %connect
-          [`/apps/s3-server dap.bowl]
+          [`/apps/jars dap.bowl]
       ==
   ==
 ::
@@ -81,7 +81,7 @@
         ::
             %configure-storage
           =/  bucket=@t  'default'
-          =/  endpoint=@t  'http://localhost:8080/apps/s3-server'
+          =/  endpoint=@t  'http://localhost:8080/apps/jars'
           =/  new-store=object-store:s3
             ?~  (~(get by store) bucket)
               (~(put by store) bucket *(map object-key:s3 s3-object:s3))
@@ -389,7 +389,7 @@
   ^-  (unit (unit cage))
   ?+  pole  (on-peek:def `path`pole)
     ::
-    ::  .^(json %gx /=s3-server=/config/json)
+    ::  .^(json %gx /=jars=/config/json)
     [%x %config ~]
       =/  =json
         %-  pairs:enjs:format
@@ -398,7 +398,7 @@
         ==
       ``json+!>(json)
     ::
-    ::  .^(noun %gx /=s3-server=/buckets/noun)
+    ::  .^(noun %gx /=jars=/buckets/noun)
     [%x %buckets ~]
       ``noun+!>(~(key by store))
   ==
@@ -412,9 +412,9 @@
       [%eyre %connect ~]
     ?>  ?=([%eyre %bound *] sign-arvo)
     ?:  accepted.sign-arvo
-      %-  (slog leaf+"s3-server: bound at /apps/s3-server" ~)
+      %-  (slog leaf+"s3-server: bound at /apps/jars" ~)
       `this
-    %-  (slog leaf+"s3-server: FAILED to bind at /apps/s3-server" ~)
+    %-  (slog leaf+"s3-server: FAILED to bind at /apps/jars" ~)
     `this
   ==
 ::

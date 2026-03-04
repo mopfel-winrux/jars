@@ -285,7 +285,7 @@
 ::  +validate-presigned-url: validate an AWS SigV4 presigned URL
 ::
 ::    method: HTTP method (GET, PUT, etc.)
-::    path: URL path (e.g., /apps/s3-server/bucket/key)
+::    path: URL path (e.g., /apps/jars/bucket/key)
 ::    query: query string
 ::    headers: request headers
 ::    secret: our secret access key

@@ -161,7 +161,7 @@
 ::
 ++  test-validate-presigned-url
   =/  method=@t  'GET'
-  =/  url-path=@t  '/apps/s3-server/mybucket/mykey'
+  =/  url-path=@t  '/apps/jars/mybucket/mykey'
   =/  creds=credentials:s3  ['minioadmin' 'minioadmin']
   =/  region=@t  'us-east-1'
   =/  amz-date=@t  '20260303T120000Z'
@@ -187,7 +187,7 @@
 ::
 ++  test-validate-presigned-url-bad-sig
   =/  method=@t  'GET'
-  =/  url-path=@t  '/apps/s3-server/mybucket/mykey'
+  =/  url-path=@t  '/apps/jars/mybucket/mykey'
   =/  creds=credentials:s3  ['minioadmin' 'minioadmin']
   =/  region=@t  'us-east-1'
   =/  amz-date=@t  '20260303T120000Z'
@@ -214,7 +214,7 @@
 ::
 ++  test-validate-presigned-url-expired
   =/  method=@t  'GET'
-  =/  url-path=@t  '/apps/s3-server/mybucket/mykey'
+  =/  url-path=@t  '/apps/jars/mybucket/mykey'
   =/  creds=credentials:s3  ['minioadmin' 'minioadmin']
   =/  region=@t  'us-east-1'
   =/  amz-date=@t  '20260303T120000Z'
@@ -241,7 +241,7 @@
 ::
 ++  test-validate-auth-header
   =/  method=@t  'GET'
-  =/  url-path=@t  '/apps/s3-server/mybucket/mykey'
+  =/  url-path=@t  '/apps/jars/mybucket/mykey'
   =/  creds=credentials:s3  ['minioadmin' 'minioadmin']
   =/  region=@t  'us-east-1'
   =/  amz-date=@t  '20260303T120000Z'
