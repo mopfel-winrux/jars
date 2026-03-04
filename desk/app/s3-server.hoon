@@ -31,6 +31,75 @@
   ?~  rem  ~
   ?~  t.rem  (trip i.rem)
   "{(trip i.rem)}/{$(rem t.rem)}"
+::
+++  page-css
+  ^-  @t
+  '''
+  body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px}
+  h1{margin-bottom:20px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-weight:bold;margin-bottom:4px}
+  .field .val{color:#555;font-family:monospace}
+  input[type=text]{width:100%;padding:8px;box-sizing:border-box}
+  button{padding:8px 16px;margin-right:8px;cursor:pointer}
+  #msg{margin-top:16px;padding:8px;display:none}
+  .ok{background:#d4edda;color:#155724}
+  .err{background:#f8d7da;color:#721c24}
+  '''
+::
+++  page-js
+  ^-  @t
+  '''
+  var u=document.getElementById('url');
+  u.value=localStorage.getItem('jars-url')||'';
+  function doSave(){
+    localStorage.setItem('jars-url',u.value);
+    show('URL saved locally','ok');
+  }
+  function doCfg(){
+    var v=u.value;
+    if(!v){show('Enter a URL first','err');return;}
+    fetch('/jars',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'configure-storage',url:v})
+    }).then(function(r){return r.json();})
+    .then(function(j){
+      if(j.ok) show('Storage configured!','ok');
+      else show(j.error||'Failed','err');
+    }).catch(function(e){show(e.message,'err');});
+  }
+  function show(t,c){
+    var m=document.getElementById('msg');
+    m.textContent=t;m.className=c;m.style.display='block';
+  }
+  '''
+::
+++  config-page
+  |=  cfg=s3-config:s3
+  ^-  octs
+  %-  as-octs:mimes:html
+  %-  crip
+  ;:  weld
+    "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Jars</title><style>"
+    (trip page-css)
+    "</style></head><body><h1>Jars</h1>"
+    "<div class='field'><label>Region</label><span class='val'>"
+    (trip region.cfg)
+    "</span></div>"
+    "<div class='field'><label>Access Key</label><span class='val'>"
+    (trip access-key-id.credentials.cfg)
+    "</span></div>"
+    "<div class='field'><label>Site URL</label>"
+    "<input type='text' id='url' placeholder='https://example.com'>"
+    "</div>"
+    "<button onclick='doSave()'>Save URL</button> "
+    "<button onclick='doCfg()'>Configure %storage</button>"
+    "<div id='msg'></div>"
+    "<script>"
+    (trip page-js)
+    "</script></body></html>"
+  ==
 --
 %-  agent:dbug
 =|  state-0
@@ -172,12 +241,25 @@
     =/  parsed=(unit [bucket=@t key=(unit @t)])
       (parse-s3-path:s3-http url-path)
     ?~  parsed
+      ::  root path: serve config page
+      ?.  authenticated.req
+        :_  this
+        %:  s3-give:s3-http
+          eyre-id  303
+          ~[['location' '/~/login?redirect=/jars']]
+          ~
+        ==
+      ?:  =(method.request.req %'GET')
+        :_  this
+        %:  s3-give:s3-http
+          eyre-id  200
+          ~[['content-type' 'text/html']]
+          `(config-page config)
+        ==
+      ?:  =(method.request.req %'POST')
+        (handle-config-post eyre-id req)
       :_  this
-      %:  s3-give:s3-http
-        eyre-id  404
-        ~[['content-type' 'application/xml']]
-        `(s3-error-xml:s3-http 'NoSuchBucket' 'Invalid path')
-      ==
+      (s3-give:s3-http eyre-id 405 ~ ~)
     ::  allow public read access for GET/HEAD on objects
     =/  is-public-read=?
       ?&  ?|(=(method.request.req %'GET') =(method.request.req %'HEAD'))
@@ -419,6 +501,71 @@
       eyre-id  200
       ~[['content-type' 'application/xml']]
       `xml-body
+    ==
+  ::
+  ++  handle-config-post
+    |=  [eyre-id=@ta req=inbound-request:eyre]
+    ^-  (quip card _this)
+    ?~  body.request.req
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  400
+        ~[['content-type' 'application/json']]
+        `(as-octs:mimes:html '{"ok":false,"error":"empty body"}')
+      ==
+    =/  jon=(unit json)  (de:json:html q.u.body.request.req)
+    ?~  jon
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  400
+        ~[['content-type' 'application/json']]
+        `(as-octs:mimes:html '{"ok":false,"error":"invalid json"}')
+      ==
+    ?.  ?=([%o *] u.jon)
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  400
+        ~[['content-type' 'application/json']]
+        `(as-octs:mimes:html '{"ok":false,"error":"expected object"}')
+      ==
+    =/  act=(unit json)  (~(get by p.u.jon) 'action')
+    =/  url=(unit json)  (~(get by p.u.jon) 'url')
+    ?.  &(?=([~ %s *] act) ?=([~ %s *] url))
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  400
+        ~[['content-type' 'application/json']]
+        `(as-octs:mimes:html '{"ok":false,"error":"missing action or url"}')
+      ==
+    ?.  =('configure-storage' p.u.act)
+      :_  this
+      %:  s3-give:s3-http
+        eyre-id  400
+        ~[['content-type' 'application/json']]
+        `(as-octs:mimes:html '{"ok":false,"error":"unknown action"}')
+      ==
+    =/  domain=@t  p.u.url
+    =/  bucket=@t  'default'
+    =/  endpoint=@t  (crip "{(trip domain)}/jars")
+    =/  new-store=object-store:s3
+      ?~  (~(get by store) bucket)
+        (~(put by store) bucket *(map object-key:s3 s3-object:s3))
+      store
+    :_  this(store new-store)
+    %+  weld
+      %:  s3-give:s3-http
+        eyre-id  200
+        ~[['content-type' 'application/json']]
+        `(as-octs:mimes:html '{"ok":true}')
+      ==
+    ^-  (list card)
+    :~  [%pass /storage/endpoint %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-endpoint endpoint]))]
+        [%pass /storage/access-key %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-access-key-id access-key-id.credentials.config]))]
+        [%pass /storage/secret-key %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-secret-access-key secret-access-key.credentials.config]))]
+        [%pass /storage/region %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-region region.config]))]
+        [%pass /storage/bucket %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%add-bucket bucket]))]
+        [%pass /storage/current-bucket %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-current-bucket bucket]))]
+        [%pass /storage/service %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%toggle-service %credentials]))]
     ==
   --
 ::
