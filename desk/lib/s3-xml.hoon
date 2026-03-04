@@ -38,7 +38,7 @@
   |=  [bucket-names=(list @t) now=@da]
   ^-  octs
   =/  buckets-xml=tape
-    %+  zing
+    %-  zing
       %+  turn  bucket-names
       |=  name=@t
       ;:  welp
