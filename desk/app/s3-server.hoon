@@ -35,7 +35,7 @@
 %-  agent:dbug
 =|  state-0
 =*  state  -
-%+  verb  &
+%+  verb  |
 ^-  agent:gall
 |_  =bowl:gall
 +*  this   .
@@ -44,20 +44,16 @@
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
-  %-  (slog leaf+"s3-server: on-agent wire={<wire>} sign={<-.sign>}" ~)
   ?+  -.sign  (on-agent:def wire sign)
       %poke-ack
-    ?~  p.sign
-      %-  (slog leaf+"s3-server: poke-ack OK wire={<wire>}" ~)
-      `this
-    %-  (slog leaf+"s3-server: poke-ack FAIL wire={<wire>} err={<u.p.sign>}" ~)
+    ?~  p.sign  `this
+    %-  (slog leaf+"s3-server: poke-ack FAIL wire={<wire>}" ~)
     `this
   ==
 ::
 ++  on-leave
   |=  =(pole knot)
   ^-  (quip card _this)
-  %-  (slog leaf+"s3-server: on-leave path={<`path`pole>}" ~)
   `this
 ::
 ++  on-fail   on-fail:def
@@ -82,8 +78,6 @@
   =/  secret-key=@t  (hex-lower-cord:s3-auth (end [3 32] eny.bowl))
   =/  default-config=s3-config:s3
     ['us-east-1' [access-key secret-key]]
-  %-  (slog leaf+"s3-server: access-key={(trip access-key)}" ~)
-  %-  (slog leaf+"s3-server: secret-key={(trip secret-key)}" ~)
   :_  this(config default-config)
   :~  :*  %pass  /eyre/connect
           %arvo  %e  %connect
@@ -118,11 +112,6 @@
             ?~  (~(get by store) bucket)
               (~(put by store) bucket *(map object-key:s3 s3-object:s3))
             store
-          %-  (slog leaf+"s3-server: configuring %storage agent" ~)
-          %-  (slog leaf+"  endpoint: {(trip endpoint)}" ~)
-          %-  (slog leaf+"  access-key: {(trip access-key-id.credentials.config)}" ~)
-          %-  (slog leaf+"  region: {(trip region.config)}" ~)
-          %-  (slog leaf+"  bucket: {(trip bucket)}" ~)
           :_  this(store new-store)
           :~  [%pass /storage/endpoint %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-endpoint endpoint]))]
               [%pass /storage/access-key %agent [our.bowl %storage] %poke %storage-action !>(^-(action:storage [%set-access-key-id access-key-id.credentials.config]))]
@@ -172,8 +161,6 @@
   ++  handle-http
     |=  [eyre-id=@ta req=inbound-request:eyre]
     ^-  (quip card _this)
-    ::  log every incoming request
-    %-  (slog leaf+"s3-server: {(trip method.request.req)} {(trip url.request.req)} eyre-id={<eyre-id>} authenticated={<authenticated.req>}" ~)
     ::  handle OPTIONS preflight for any path
     ?:  =(method.request.req %'OPTIONS')
       :_  this
@@ -201,7 +188,6 @@
       ?=(^ (find "X-Amz-Signature" (trip query)))
     =/  has-aws-auth=?
       ?=(^ (find-header:s3-http 'authorization' header-list.request.req))
-    %-  (slog leaf+"s3-server: presigned={?:(is-presigned "yes" "no")} aws-auth={?:(has-aws-auth "yes" "no")} eyre-auth={?:(authenticated.req "yes" "no")}" ~)
     =/  authed=?
       ?:  is-public-read  %.y
       ?:  is-presigned
@@ -231,16 +217,7 @@
             credentials.config
             region.config
           ==
-        ?.  result
-          =/  auth-hdr=(unit @t)
-            (find-header:s3-http 'authorization' header-list.request.req)
-          %-  (slog leaf+"s3-server: auth-header validation failed" ~)
-          %-  (slog leaf+"  method: {(trip method.request.req)}" ~)
-          %-  (slog leaf+"  path: {(trip url-path)}" ~)
-          %-  (slog leaf+"  query: {(trip query)}" ~)
-          %-  (slog leaf+"  auth: {?~(auth-hdr "~" (trip u.auth-hdr))}" ~)
-          %.n
-        %.y
+        result
       authenticated.req
     ?.  authed
       :_  this
@@ -305,7 +282,6 @@
       ==
     =/  new-bkt=bucket:s3  (~(put by bkt) object-key obj)
     =/  new-store=object-store:s3  (~(put by store) bucket-name new-bkt)
-    %-  (slog leaf+"s3-server: PUT responding eyre-id={<eyre-id>} key={(trip object-key)} size={<p.body>}" ~)
     :_  this(store new-store)
     %:  s3-give:s3-http
       eyre-id  200
@@ -532,10 +508,6 @@
   ::
       [%eyre %connect ~]
     ?>  ?=([%eyre %bound *] sign-arvo)
-    ?:  accepted.sign-arvo
-      %-  (slog leaf+"s3-server: bound at /jars" ~)
-      `this
-    %-  (slog leaf+"s3-server: FAILED to bind at /jars" ~)
     `this
   ==
 ::
@@ -544,7 +516,6 @@
   ^-  (quip card _this)
   ?+    pole  (on-watch:def `path`pole)
       [%http-response eyre-id=@ta ~]
-    %-  (slog leaf+"s3-server: on-watch eyre-id={<eyre-id.pole>} src={<src.bowl>}" ~)
     `this
   ==
 --
