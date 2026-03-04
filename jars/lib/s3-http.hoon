@@ -5,7 +5,7 @@
 |%
 ::  +base-path: the Eyre binding path prefix
 ::
-++  base-path  '/apps/jars/'
+++  base-path  '/jars/'
 ::
 ::  +cors-headers: CORS headers for all responses
 ::
@@ -20,10 +20,10 @@
 ::
 ::  +parse-s3-path: extract bucket and key from URL path
 ::
-::    Strips /apps/jars/ prefix.
+::    Strips /jars/ prefix.
 ::    Returns [bucket-name (unit object-key)]
-::    /apps/jars/my-bucket → ['my-bucket' ~]
-::    /apps/jars/my-bucket/path/to/file.txt → ['my-bucket' `'path/to/file.txt']
+::    /jars/my-bucket → ['my-bucket' ~]
+::    /jars/my-bucket/path/to/file.txt → ['my-bucket' `'path/to/file.txt']
 ::
 ++  parse-s3-path
   |=  url-path=@t

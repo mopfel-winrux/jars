@@ -22,4 +22,10 @@
   $:  region=@t
       =credentials
   ==
+::
++$  s3-action
+  $%  [%put-object =bucket-name =object-key =s3-object]
+      [%delete-object =bucket-name =object-key]
+      [%create-bucket =bucket-name]
+  ==
 --
