@@ -27,5 +27,6 @@
   $%  [%put-object =bucket-name =object-key =s3-object]
       [%delete-object =bucket-name =object-key]
       [%create-bucket =bucket-name]
+      [%delete-bucket =bucket-name]
   ==
 --

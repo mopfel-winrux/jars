@@ -17,6 +17,20 @@
       config=s3-config:s3
       store=object-store:s3
   ==
+::  +join-key: reconstruct object key from remaining path segments
+::  e.g. rest from /path/to/file.txt -> 'path/to/file.txt'
+::  note: Gall strips the trailing mark before on-peek
+++  join-key
+  |=  segs=*
+  ^-  @t
+  =/  pax=(list @t)  ;;((list @t) segs)
+  ?~  pax  ''
+  %-  crip
+  =/  rem=(list @t)  pax
+  |-  ^-  tape
+  ?~  rem  ~
+  ?~  t.rem  (trip i.rem)
+  "{(trip i.rem)}/{$(rem t.rem)}"
 --
 %-  agent:dbug
 =|  state-0
@@ -124,6 +138,35 @@
         ?>  =(src our):bowl
         =/  new-config  !<(s3-config:s3 vase)
         `this(config new-config)
+      ::
+          %s3-action
+        ?>  =(src our):bowl
+        =/  act  !<(s3-action:s3 vase)
+        ?-  -.act
+            %put-object
+          =/  bkt=bucket:s3
+            (~(gut by store) bucket-name.act *(map object-key:s3 s3-object:s3))
+          =/  new-bkt=bucket:s3  (~(put by bkt) object-key.act s3-object.act)
+          =/  new-store=object-store:s3  (~(put by store) bucket-name.act new-bkt)
+          `this(store new-store)
+        ::
+            %delete-object
+          =/  bkt=(unit bucket:s3)  (~(get by store) bucket-name.act)
+          ?~  bkt  `this
+          =/  new-bkt=bucket:s3  (~(del by u.bkt) object-key.act)
+          =/  new-store=object-store:s3  (~(put by store) bucket-name.act new-bkt)
+          `this(store new-store)
+        ::
+            %create-bucket
+          =/  new-store=object-store:s3
+            ?~  (~(get by store) bucket-name.act)
+              (~(put by store) bucket-name.act *(map object-key:s3 s3-object:s3))
+            store
+          `this(store new-store)
+        ::
+            %delete-bucket
+          `this(store (~(del by store) bucket-name.act))
+        ==
       ==
   ::
   ++  handle-http
@@ -420,6 +463,65 @@
     ::  .^(noun %gx /=s3-server=/buckets/noun)
     [%x %buckets ~]
       ``noun+!>(~(key by store))
+    ::
+    ::  .^(? %gx /=s3-server=/bucket/[name]/noun)
+    [%x %bucket name=@ ~]
+      ``noun+!>((~(has by store) name.pole))
+    ::
+    ::  .^((list @t) %gx /=s3-server=/bucket/[name]/keys/noun)
+    [%x %bucket name=@ %keys ~]
+      =/  bkt=(unit bucket:s3)  (~(get by store) name.pole)
+      ?~  bkt  [~ ~]
+      =/  keys=(list @t)
+        %+  sort  ~(tap in ~(key by u.bkt))
+        aor
+      ``noun+!>(keys)
+    ::
+    ::  .^(s3-object %gx /=s3-server=/bucket/[name]/object/[key...]/noun)
+    [%x %bucket name=@ %object rest=*]
+      =/  =object-key:s3  (join-key rest.pole)
+      =/  bkt=(unit bucket:s3)  (~(get by store) name.pole)
+      ?~  bkt  [~ ~]
+      =/  obj=(unit s3-object:s3)  (~(get by u.bkt) object-key)
+      ?~  obj  [~ ~]
+      ``noun+!>(u.obj)
+    ::
+    ::  .^(octs %gx /=s3-server=/bucket/[name]/data/[key...]/noun)
+    [%x %bucket name=@ %data rest=*]
+      =/  =object-key:s3  (join-key rest.pole)
+      =/  bkt=(unit bucket:s3)  (~(get by store) name.pole)
+      ?~  bkt  [~ ~]
+      =/  obj=(unit s3-object:s3)  (~(get by u.bkt) object-key)
+      ?~  obj  [~ ~]
+      ``noun+!>(data.u.obj)
+    ::
+    ::  .^(? %gx /=s3-server=/bucket/[name]/has/[key...]/noun)
+    [%x %bucket name=@ %has rest=*]
+      =/  =object-key:s3  (join-key rest.pole)
+      =/  bkt=(unit bucket:s3)  (~(get by store) name.pole)
+      ?~  bkt  ``noun+!>(%.n)
+      ``noun+!>((~(has by u.bkt) object-key))
+    ::
+    ::  .^(json %gx /=s3-server=/bucket/[name]/meta/[key...]/json)
+    [%x %bucket name=@ %meta rest=*]
+      =/  =object-key:s3  (join-key rest.pole)
+      =/  bkt=(unit bucket:s3)  (~(get by store) name.pole)
+      ?~  bkt  [~ ~]
+      =/  obj=(unit s3-object:s3)  (~(get by u.bkt) object-key)
+      ?~  obj  [~ ~]
+      =/  =json
+        %-  pairs:enjs:format
+        :~  ['contentType' s+content-type.u.obj]
+            ['etag' s+etag.u.obj]
+            ['lastModified' s+(scot %da last-modified.u.obj)]
+            ['size' (numb:enjs:format p.data.u.obj)]
+            :-  'metadata'
+            %-  pairs:enjs:format
+            %+  turn  ~(tap by metadata.u.obj)
+            |=  [k=@t v=@t]
+            [k s+v]
+        ==
+      ``json+!>(json)
   ==
 ::
 ++  on-arvo
