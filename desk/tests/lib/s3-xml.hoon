@@ -46,4 +46,22 @@
   %+  expect-eq
     !>(%.y)
   !>((gth p.result 0))
+::
+::  test list buckets result XML generation
+::
+++  test-list-buckets-result
+  =/  result=octs
+    (list-buckets-result:s3-xml ~['alpha' 'beta'] ~2026.3.4..10.0.0)
+  %+  expect-eq
+    !>(%.y)
+  !>(?=(^ (find "<Name>alpha</Name>" (trip q.result))))
+::
+::  test copy object result XML generation
+::
+++  test-copy-object-result
+  =/  result=octs
+    (copy-object-result:s3-xml '"etag-value"' ~2026.3.4..10.0.0)
+  %+  expect-eq
+    !>(%.y)
+  !>(?=(^ (find "<CopyObjectResult>" (trip q.result))))
 --
