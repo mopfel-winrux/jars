@@ -87,7 +87,7 @@
         (handle-http !<([@ta inbound-request:eyre] vase))
       ::
           %noun
-        =/  act  !<(noun vase)
+        =/  act  !<(* vase)
         ?+  act  (on-poke:def mark vase)
             %print-config
           %-  (slog leaf+"s3-server config:" ~)

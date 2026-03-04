@@ -34,19 +34,18 @@
   ::  check prefix matches
   ?.  =(prefix (scag plen full))
     ~
-  =/  raw=tape  (slag plen full)
-  ::  trim trailing slash if any
-  =/  rest=tape
-    ?:  &(?=(^ raw) =('/' (rear raw)))
-      (flop (tail (flop raw)))
-    raw
+  =/  rest=tape  (slag plen full)
   ?:  =(~ rest)  ~
   ::  find first slash to split bucket/key
   =/  slash-idx  (find "/" rest)
   ?~  slash-idx
     `[(crip rest) ~]
   =/  bucket=@t  (crip (scag u.slash-idx rest))
-  =/  key=@t     (url-decode-full (crip (slag +(u.slash-idx) rest)))
+  =/  after=tape  (slag +(u.slash-idx) rest)
+  ::  no key: bucket only (with or without trailing slash)
+  ?:  =(~ after)
+    `[bucket ~]
+  =/  key=@t  (url-decode-full (crip after))
   ?:  =(key '')
     `[bucket ~]
   `[bucket `key]
