@@ -167,7 +167,7 @@
         ?>  =(src our):bowl
         =+  !<(=egg-any:gall vase)
         ?-  -.egg-any
-            ?(%15 %16)
+            ?(%15 %16 %20)
           ?.  ?=(%live +<.egg-any)
             ~&  [dap.bowl %egg-any-not-live]
             [~ this]
