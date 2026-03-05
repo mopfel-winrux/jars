@@ -106,6 +106,7 @@
 =*  state  -
 %+  verb  |
 ^-  agent:gall
+=<
 |_  =bowl:gall
 +*  this   .
     def    ~(. (default-agent this %|) bowl)
@@ -167,7 +168,7 @@
         ?>  =(src our):bowl
         =+  !<(=egg-any:gall vase)
         ?-  -.egg-any
-            ?(%15 %16)
+            ?(%15 %16 %20)
           ?.  ?=(%live +<.egg-any)
             ~&  [dap.bowl %egg-any-not-live]
             [~ this]
@@ -217,14 +218,18 @@
             (~(gut by store) bucket-name.act *(map object-key:s3 s3-object:s3))
           =/  new-bkt=bucket:s3  (~(put by bkt) object-key.act s3-object.act)
           =/  new-store=object-store:s3  (~(put by store) bucket-name.act new-bkt)
-          `this(store new-store)
+          =/  cache-url=@t  (object-url bucket-name.act object-key.act)
+          :_  this(store new-store)
+          (cache-object-cards cache-url s3-object.act)
         ::
             %delete-object
           =/  bkt=(unit bucket:s3)  (~(get by store) bucket-name.act)
           ?~  bkt  `this
           =/  new-bkt=bucket:s3  (~(del by u.bkt) object-key.act)
           =/  new-store=object-store:s3  (~(put by store) bucket-name.act new-bkt)
-          `this(store new-store)
+          =/  cache-url=@t  (object-url bucket-name.act object-key.act)
+          :_  this(store new-store)
+          (evict-cache-cards cache-url)
         ::
             %create-bucket
           =/  new-store=object-store:s3
@@ -415,7 +420,10 @@
         ==
       =/  new-bkt=bucket:s3  (~(put by bkt) object-key obj)
       =/  new-store=object-store:s3  (~(put by store) bucket-name new-bkt)
+      =/  cache-url=@t  (object-url bucket-name object-key)
       :_  this(store new-store)
+      %+  weld
+        (cache-object-cards cache-url obj)
       %:  s3-give:s3-http
         eyre-id  200
         ~[['etag' etag] ['content-length' '0']]
@@ -568,7 +576,10 @@
       (s3-give:s3-http eyre-id 204 ~[['content-length' '0']] ~)
     =/  new-bkt=bucket:s3  (~(del by u.bkt) object-key)
     =/  new-store=object-store:s3  (~(put by store) bucket-name new-bkt)
+    =/  cache-url=@t  (object-url bucket-name object-key)
     :_  this(store new-store)
+    %+  weld
+      (evict-cache-cards cache-url)
     (s3-give:s3-http eyre-id 204 ~[['content-length' '0']] ~)
   ::
   ++  handle-create-bucket
@@ -793,5 +804,42 @@
   ?+    pole  (on-watch:def `path`pole)
       [%http-response eyre-id=@ta ~]
     `this
+  ==
+--
+::
+|%
+::
+::  +object-url: build the Eyre URL for a stored object
+++  object-url
+  |=  [=bucket-name:s3 =object-key:s3]
+  ^-  @t
+  (crip "/jars/{(trip bucket-name)}/{(trip object-key)}")
+::
+::  +cache-object-cards: build %set-response card to cache an object in Eyre
+++  cache-object-cards
+  |=  [url=@t obj=s3-object:s3]
+  ^-  (list card)
+  :~  :*  %pass  /eyre/cache
+          %arvo  %e
+          %set-response  url
+          %-  some
+          ^-  cache-entry:eyre
+          :*  %.n
+              :-  %payload
+              ^-  simple-payload:http
+              :_  (some data.obj)
+              :-  200
+              :~  ['Content-Type' content-type.obj]
+                  ['ETag' etag.obj]
+              ==
+          ==
+      ==
+  ==
+::
+::  +evict-cache-cards: build %set-response card to remove a cached object
+++  evict-cache-cards
+  |=  url=@t
+  ^-  (list card)
+  :~  [%pass /eyre/cache %arvo %e %set-response url ~]
   ==
 --
