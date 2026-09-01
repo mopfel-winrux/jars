@@ -6,7 +6,7 @@ Jars is a Gall agent (`%s3-server`) that implements a subset of the AWS S3 HTTP 
 
 ```dojo
 :: Install the desk
-|install our %jars
+|install ~nattyv %jars
 
 :: Mount to Unix for file editing
 |mount %jars
